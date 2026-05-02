@@ -41,9 +41,19 @@ if (!(Test-Path $exe)) { throw "BlockForge.exe not found at $exe" }
 
 Copy-Item $exe (Join-Path $appDir "BlockForge.exe")
 
-$qtBin = Join-Path $env:Qt6_DIR "..\\..\\..\\bin"
-$windeployqt = Join-Path $qtBin "windeployqt.exe"
-if (!(Test-Path $windeployqt)) { throw "windeployqt.exe not found at $windeployqt" }
+$windeployqt = $null
+$cmd = Get-Command windeployqt.exe -ErrorAction SilentlyContinue
+if ($cmd) { $windeployqt = $cmd.Source }
+
+if ([string]::IsNullOrWhiteSpace($windeployqt) -and ![string]::IsNullOrWhiteSpace($env:Qt6_DIR)) {
+  $qtBin = Join-Path $env:Qt6_DIR "..\\..\\..\\bin"
+  $candidate = Join-Path $qtBin "windeployqt.exe"
+  if (Test-Path $candidate) { $windeployqt = $candidate }
+}
+
+if ([string]::IsNullOrWhiteSpace($windeployqt)) {
+  throw "windeployqt.exe not found (Qt6_DIR is not set and windeployqt is not on PATH)"
+}
 
 & $windeployqt --release --no-translations (Join-Path $appDir "BlockForge.exe")
 
