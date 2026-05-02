@@ -9,7 +9,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+$cwd = Get-Location
+$buildDirAbs = [System.IO.Path]::GetFullPath((Join-Path $cwd $BuildDir))
+$outDirAbs = [System.IO.Path]::GetFullPath((Join-Path $cwd $OutDir))
+
+New-Item -ItemType Directory -Force -Path $outDirAbs | Out-Null
 
 $v = $Version
 if ([string]::IsNullOrWhiteSpace($v)) {
@@ -32,14 +36,15 @@ if ($vi -match "^\d+(\.\d+){0,3}$") {
   $vi = "0.0.0.0"
 }
 
-$appDir = Join-Path $OutDir "app"
+$appDir = Join-Path $outDirAbs "app"
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $appDir
 New-Item -ItemType Directory -Force -Path $appDir | Out-Null
 
-$exe = Join-Path $BuildDir "BlockForge.exe"
+$exe = Join-Path $buildDirAbs "BlockForge.exe"
 if (!(Test-Path $exe)) { throw "BlockForge.exe not found at $exe" }
 
 Copy-Item $exe (Join-Path $appDir "BlockForge.exe")
+if (!(Test-Path (Join-Path $appDir "BlockForge.exe"))) { throw "Failed to stage BlockForge.exe into $appDir" }
 
 $windeployqt = $null
 $cmd = Get-Command windeployqt.exe -ErrorAction SilentlyContinue
@@ -65,7 +70,7 @@ if (![string]::IsNullOrWhiteSpace($Jre21) -and (Test-Path $Jre21)) {
   Copy-Item $Jre21 (Join-Path $jreRoot "21") -Recurse -Force
 }
 
-$staging = Join-Path $OutDir "staging"
+$staging = Join-Path $outDirAbs "staging"
 Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $staging
 New-Item -ItemType Directory -Force -Path $staging | Out-Null
 
@@ -73,14 +78,14 @@ $rootFolder = Join-Path $staging ("BlockForge-" + $vSafe)
 New-Item -ItemType Directory -Force -Path $rootFolder | Out-Null
 Copy-Item (Join-Path $appDir "*") $rootFolder -Recurse -Force
 
-$portableZip = Join-Path $OutDir ("BlockForge-Portable-" + $vSafe + ".zip")
+$portableZip = Join-Path $outDirAbs ("BlockForge-Portable-" + $vSafe + ".zip")
 if (Test-Path $portableZip) { Remove-Item -Force $portableZip }
 Compress-Archive -Path $rootFolder -DestinationPath $portableZip
 
 choco install nsis -y --no-progress
 
 $nsi = Join-Path $PSScriptRoot "..\\packaging\\nsis\\BlockForge.nsi"
-$setupExe = Join-Path $OutDir ("BlockForge-Setup-" + $vSafe + ".exe")
+$setupExe = Join-Path $outDirAbs ("BlockForge-Setup-" + $vSafe + ".exe")
 $makensis = $null
 $mcmd = Get-Command makensis.exe -ErrorAction SilentlyContinue
 if ($mcmd) { $makensis = $mcmd.Source }
@@ -121,6 +126,6 @@ if ([string]::IsNullOrWhiteSpace($makensis)) {
 if ([string]::IsNullOrWhiteSpace($makensis)) { throw "makensis.exe not found after installing nsis" }
 & $makensis /DAPPDIR="$appDir" /DOUTFILE="$setupExe" /DVERSION="$vSafe" /DVIPRODUCTVERSION="$vi" $nsi
 
-$shaPath = Join-Path $OutDir ("SHA256SUMS-" + $vSafe + ".txt")
+$shaPath = Join-Path $outDirAbs ("SHA256SUMS-" + $vSafe + ".txt")
 if (Test-Path $shaPath) { Remove-Item -Force $shaPath }
 Get-FileHash -Algorithm SHA256 $portableZip, $setupExe | ForEach-Object { "$($_.Hash)  $([System.IO.Path]::GetFileName($_.Path))" } | Out-File -FilePath $shaPath -Encoding ascii
