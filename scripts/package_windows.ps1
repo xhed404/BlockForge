@@ -44,16 +44,12 @@ Copy-Item $exe (Join-Path $appDir "BlockForge.exe")
 $windeployqt = $null
 $cmd = Get-Command windeployqt.exe -ErrorAction SilentlyContinue
 if ($cmd) { $windeployqt = $cmd.Source }
-
 if ([string]::IsNullOrWhiteSpace($windeployqt) -and ![string]::IsNullOrWhiteSpace($env:Qt6_DIR)) {
   $qtBin = Join-Path $env:Qt6_DIR "..\\..\\..\\bin"
   $candidate = Join-Path $qtBin "windeployqt.exe"
   if (Test-Path $candidate) { $windeployqt = $candidate }
 }
-
-if ([string]::IsNullOrWhiteSpace($windeployqt)) {
-  throw "windeployqt.exe not found (Qt6_DIR is not set and windeployqt is not on PATH)"
-}
+if ([string]::IsNullOrWhiteSpace($windeployqt)) { throw "windeployqt.exe not found (Qt6_DIR is not set and windeployqt is not on PATH)" }
 
 & $windeployqt --release --no-translations (Join-Path $appDir "BlockForge.exe")
 
@@ -88,7 +84,6 @@ $setupExe = Join-Path $OutDir ("BlockForge-Setup-" + $vSafe + ".exe")
 $makensis = $null
 $mcmd = Get-Command makensis.exe -ErrorAction SilentlyContinue
 if ($mcmd) { $makensis = $mcmd.Source }
-
 if ([string]::IsNullOrWhiteSpace($makensis)) {
   $candidate = Join-Path $env:ChocolateyInstall "bin\\makensis.exe"
   if (Test-Path $candidate) { $makensis = $candidate }
@@ -98,11 +93,15 @@ if ([string]::IsNullOrWhiteSpace($makensis)) {
   if (Test-Path $candidate) { $makensis = $candidate }
 }
 if ([string]::IsNullOrWhiteSpace($makensis)) {
-  $candidate = "C:\\ProgramData\\chocolatey\\lib\\nsis\\tools\\makensis.exe"
-  if (Test-Path $candidate) { $makensis = $candidate }
+  $chocoRoot = $env:ChocolateyInstall
+  if ([string]::IsNullOrWhiteSpace($chocoRoot)) { $chocoRoot = "C:\\ProgramData\\chocolatey" }
+  $nsisRoot = Join-Path $chocoRoot "lib\\nsis"
+  if (Test-Path $nsisRoot) {
+    $found = Get-ChildItem -Path $nsisRoot -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found) { $makensis = $found.FullName }
+  }
 }
 if ([string]::IsNullOrWhiteSpace($makensis)) { throw "makensis.exe not found after installing nsis" }
-
 & $makensis /DAPPDIR="$appDir" /DOUTFILE="$setupExe" /DVERSION="$vSafe" /DVIPRODUCTVERSION="$vi" $nsi
 
 $shaPath = Join-Path $OutDir ("SHA256SUMS-" + $vSafe + ".txt")
