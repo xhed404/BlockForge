@@ -101,6 +101,23 @@ if ([string]::IsNullOrWhiteSpace($makensis)) {
     if ($found) { $makensis = $found.FullName }
   }
 }
+if ([string]::IsNullOrWhiteSpace($makensis)) {
+  $candidate = "C:\\Program Files (x86)\\NSIS\\makensis.exe"
+  if (Test-Path $candidate) { $makensis = $candidate }
+}
+if ([string]::IsNullOrWhiteSpace($makensis)) {
+  $candidate = "C:\\Program Files\\NSIS\\makensis.exe"
+  if (Test-Path $candidate) { $makensis = $candidate }
+}
+if ([string]::IsNullOrWhiteSpace($makensis)) {
+  $pf86 = ${env:ProgramFiles(x86)}
+  if ([string]::IsNullOrWhiteSpace($pf86)) { $pf86 = "C:\\Program Files (x86)" }
+  $nsis = Join-Path $pf86 "NSIS"
+  if (Test-Path $nsis) {
+    $found = Get-ChildItem -Path $nsis -Filter "makensis.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($found) { $makensis = $found.FullName }
+  }
+}
 if ([string]::IsNullOrWhiteSpace($makensis)) { throw "makensis.exe not found after installing nsis" }
 & $makensis /DAPPDIR="$appDir" /DOUTFILE="$setupExe" /DVERSION="$vSafe" /DVIPRODUCTVERSION="$vi" $nsi
 
