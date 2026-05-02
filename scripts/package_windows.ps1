@@ -85,7 +85,25 @@ choco install nsis -y --no-progress
 
 $nsi = Join-Path $PSScriptRoot "..\\packaging\\nsis\\BlockForge.nsi"
 $setupExe = Join-Path $OutDir ("BlockForge-Setup-" + $vSafe + ".exe")
-& makensis.exe /DAPPDIR="$appDir" /DOUTFILE="$setupExe" /DVERSION="$vSafe" /DVIPRODUCTVERSION="$vi" $nsi
+$makensis = $null
+$mcmd = Get-Command makensis.exe -ErrorAction SilentlyContinue
+if ($mcmd) { $makensis = $mcmd.Source }
+
+if ([string]::IsNullOrWhiteSpace($makensis)) {
+  $candidate = Join-Path $env:ChocolateyInstall "bin\\makensis.exe"
+  if (Test-Path $candidate) { $makensis = $candidate }
+}
+if ([string]::IsNullOrWhiteSpace($makensis)) {
+  $candidate = Join-Path $env:ChocolateyInstall "lib\\nsis\\tools\\makensis.exe"
+  if (Test-Path $candidate) { $makensis = $candidate }
+}
+if ([string]::IsNullOrWhiteSpace($makensis)) {
+  $candidate = "C:\\ProgramData\\chocolatey\\lib\\nsis\\tools\\makensis.exe"
+  if (Test-Path $candidate) { $makensis = $candidate }
+}
+if ([string]::IsNullOrWhiteSpace($makensis)) { throw "makensis.exe not found after installing nsis" }
+
+& $makensis /DAPPDIR="$appDir" /DOUTFILE="$setupExe" /DVERSION="$vSafe" /DVIPRODUCTVERSION="$vi" $nsi
 
 $shaPath = Join-Path $OutDir ("SHA256SUMS-" + $vSafe + ".txt")
 if (Test-Path $shaPath) { Remove-Item -Force $shaPath }
