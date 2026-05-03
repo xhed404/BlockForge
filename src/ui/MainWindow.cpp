@@ -580,7 +580,7 @@ MainWindow::MainWindow(QWidget* parent)
 
         const auto nt = QString::fromStdString(settings.get(instanceKey(*selectedInstanceId, "notes")).value_or(""));
         notes->setPlainText(nt.left(500));
-        notesMeta->setText(QString("%1 / 500").arg(std::min(500, nt.size())));
+        notesMeta->setText(QString("%1 / 500").arg(std::min(500, static_cast<int>(nt.size()))));
 
         btnPlay->setEnabled(true);
         btnEdit->setEnabled(true);
