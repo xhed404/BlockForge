@@ -1,0 +1,29 @@
+<RCC>
+  <qresource prefix="/">
+    <file>assets/icons/nav_instances.svg</file>
+    <file>assets/icons/nav_instances_on.svg</file>
+    <file>assets/icons/nav_accounts.svg</file>
+    <file>assets/icons/nav_accounts_on.svg</file>
+    <file>assets/icons/nav_java.svg</file>
+    <file>assets/icons/nav_java_on.svg</file>
+    <file>assets/icons/nav_mods.svg</file>
+    <file>assets/icons/nav_mods_on.svg</file>
+    <file>assets/icons/nav_logs.svg</file>
+    <file>assets/icons/nav_logs_on.svg</file>
+    <file>assets/icons/nav_settings.svg</file>
+    <file>assets/icons/nav_settings_on.svg</file>
+    <file>assets/icons/logo.svg</file>
+    <file>assets/icons/action_create.svg</file>
+    <file>assets/icons/action_search.svg</file>
+    <file>assets/icons/action_import.svg</file>
+    <file>assets/icons/action_refresh.svg</file>
+    <file>assets/icons/action_more.svg</file>
+    <file>assets/icons/action_play.svg</file>
+    <file>assets/icons/action_edit.svg</file>
+    <file>assets/icons/action_folder.svg</file>
+    <file>assets/icons/action_delete.svg</file>
+    <file>assets/icons/inst_grass.svg</file>
+    <file>assets/icons/inst_stone.svg</file>
+    <file>assets/icons/inst_obsidian.svg</file>
+  </qresource>
+</RCC>
