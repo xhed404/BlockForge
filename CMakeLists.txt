@@ -61,6 +61,7 @@ if(BLOCKFORGE_BUILD_UI)
         src/ui/AuthWorker.cpp
         src/ui/resources.qrc
     )
+    set_target_properties(BlockForge PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON)
     target_link_libraries(BlockForge PRIVATE Qt6::Widgets Qt6::Network blockforge_core)
     if(TARGET Qt6::Svg)
         target_link_libraries(BlockForge PRIVATE Qt6::Svg)
