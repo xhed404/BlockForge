@@ -2,7 +2,7 @@
 
 ![BlockForge Banner](https://ibb.co/XryHpH5t)
 
-BlockForge — лаунчер Minecraft с поддержкой vanilla / Fabric / Forge, оффлайн-профилей и Microsoft login.
+BlockForge - лаунчер Minecraft с поддержкой vanilla / Fabric / Forge, оффлайн-профилей и Microsoft login.
 
 ## Возможности
 
