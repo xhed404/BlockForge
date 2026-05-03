@@ -48,6 +48,7 @@
 #include <filesystem>
 #include <fstream>
 #include <algorithm>
+#include <memory>
 #include <optional>
 #include <system_error>
 #include <unordered_map>
@@ -431,15 +432,15 @@ MainWindow::MainWindow(QWidget* parent)
     globalRam->setText(QString::fromStdString(settings.get("java.maxRamMb").value_or("4096")));
     msClientId->setText(QString::fromStdString(settings.get("ms.clientId").value_or("")));
 
-    std::unordered_map<std::string, Instance> instancesById;
-    QString selectedInstanceId;
+    auto instancesById = std::make_shared<std::unordered_map<std::string, Instance>>();
+    auto selectedInstanceId = std::make_shared<QString>();
 
     auto instanceKey = [](const QString& id, const QString& key) {
         return QString("instance.%1.%2").arg(id, key).toStdString();
     };
 
-    auto updateDetails = [&]() {
-        if (selectedInstanceId.isEmpty())
+    auto updateDetails = [=]() {
+        if (selectedInstanceId->isEmpty())
         {
             title->setText("Select an instance");
             subtitle->setText("");
@@ -456,11 +457,22 @@ MainWindow::MainWindow(QWidget* parent)
             return;
         }
 
-        const auto it = instancesById.find(selectedInstanceId.toStdString());
-        if (it == instancesById.end())
+        const auto it = instancesById->find(selectedInstanceId->toStdString());
+        if (it == instancesById->end())
         {
-            selectedInstanceId.clear();
-            updateDetails();
+            selectedInstanceId->clear();
+            title->setText("Select an instance");
+            subtitle->setText("");
+            labelMc->setText("-");
+            labelLoader->setText("-");
+            btnPlay->setEnabled(false);
+            btnEdit->setEnabled(false);
+            btnFolder->setEnabled(false);
+            btnDelete->setEnabled(false);
+            javaPath->setEnabled(false);
+            javaBrowse->setEnabled(false);
+            ramSlider->setEnabled(false);
+            notes->setEnabled(false);
             return;
         }
         const auto& inst = it->second;
@@ -470,16 +482,16 @@ MainWindow::MainWindow(QWidget* parent)
         labelLoader->setText(QString::fromStdString(toString(inst.loaderType)));
 
         auto settings = appSettings();
-        javaPath->setText(QString::fromStdString(settings.get(instanceKey(selectedInstanceId, "javaPath")).value_or("")));
+        javaPath->setText(QString::fromStdString(settings.get(instanceKey(*selectedInstanceId, "javaPath")).value_or("")));
 
-        const auto rm = settings.get(instanceKey(selectedInstanceId, "ramMb")).value_or(settings.get("java.maxRamMb").value_or("4096"));
+        const auto rm = settings.get(instanceKey(*selectedInstanceId, "ramMb")).value_or(settings.get("java.maxRamMb").value_or("4096"));
         bool ok = false;
         const int rmi = QString::fromStdString(rm).toInt(&ok);
         const int clamped = ok ? std::max(1024, std::min(16384, rmi)) : 4096;
         ramSlider->setValue(clamped);
         ramLabel->setText(QString("%1 MB").arg(clamped));
 
-        notes->setPlainText(QString::fromStdString(settings.get(instanceKey(selectedInstanceId, "notes")).value_or("")));
+        notes->setPlainText(QString::fromStdString(settings.get(instanceKey(*selectedInstanceId, "notes")).value_or("")));
 
         btnPlay->setEnabled(true);
         btnEdit->setEnabled(true);
@@ -491,8 +503,8 @@ MainWindow::MainWindow(QWidget* parent)
         notes->setEnabled(true);
     };
 
-    auto refreshInstances = [&]() {
-        instancesById.clear();
+    auto refreshInstances = [=]() mutable {
+        instancesById->clear();
         list->clear();
 
         InstanceStore store(AppPaths::instancesDir());
@@ -501,7 +513,7 @@ MainWindow::MainWindow(QWidget* parent)
         const auto last = QString::fromStdString(settings.get("ui.lastInstanceId").value_or(""));
         for (const auto& inst : items)
         {
-            instancesById[inst.id] = inst;
+            (*instancesById)[inst.id] = inst;
 
             auto* row = new QTreeWidgetItem();
             row->setText(0, " ");
@@ -533,21 +545,21 @@ MainWindow::MainWindow(QWidget* parent)
                 auto* it = list->topLevelItem(i);
                 if (it->data(0, Qt::UserRole).toString() == last)
                 {
-                    selectedInstanceId = last;
+                    *selectedInstanceId = last;
                     list->setCurrentItem(it);
                     break;
                 }
             }
         }
-        if (selectedInstanceId.isEmpty() && list->topLevelItemCount() > 0)
+        if (selectedInstanceId->isEmpty() && list->topLevelItemCount() > 0)
         {
-            selectedInstanceId = list->topLevelItem(0)->data(0, Qt::UserRole).toString();
+            *selectedInstanceId = list->topLevelItem(0)->data(0, Qt::UserRole).toString();
             list->setCurrentItem(list->topLevelItem(0));
         }
         updateDetails();
     };
 
-    auto refreshAccounts = [&]() {
+    auto refreshAccounts = [=]() mutable {
         accountCombo->blockSignals(true);
         accountCombo->clear();
 
@@ -589,14 +601,14 @@ MainWindow::MainWindow(QWidget* parent)
         statusAuth->setText(activeIndex >= 0 ? "Auth: Signed in" : "Auth: Offline");
     };
 
-    auto refreshMods = [&]() {
+    auto refreshMods = [=]() {
         modsList->blockSignals(true);
         modsList->clear();
         modsList->blockSignals(false);
-        if (selectedInstanceId.isEmpty()) return;
+        if (selectedInstanceId->isEmpty()) return;
 
         const auto gameDir =
-            QDir(QString::fromStdString(AppPaths::dataDir().string())).filePath(QString("instances/%1/game").arg(selectedInstanceId));
+            QDir(QString::fromStdString(AppPaths::dataDir().string())).filePath(QString("instances/%1/game").arg(*selectedInstanceId));
         const auto modsDir = QDir(gameDir).filePath("mods");
         QDir().mkpath(modsDir);
 
@@ -630,9 +642,9 @@ MainWindow::MainWindow(QWidget* parent)
 
     connect(list, &QTreeWidget::currentItemChanged, this, [=](QTreeWidgetItem* cur, QTreeWidgetItem*) {
         if (!cur) return;
-        selectedInstanceId = cur->data(0, Qt::UserRole).toString();
+        *selectedInstanceId = cur->data(0, Qt::UserRole).toString();
         auto settings = appSettings();
-        settings.set("ui.lastInstanceId", selectedInstanceId.toStdString());
+        settings.set("ui.lastInstanceId", selectedInstanceId->toStdString());
         updateDetails();
         refreshMods();
     });
@@ -687,22 +699,22 @@ MainWindow::MainWindow(QWidget* parent)
             appendLog("Import failed.");
             return;
         }
-        selectedInstanceId = QString::fromStdString(inst.id);
-        appendLog(QString("Imported as instance: %1").arg(selectedInstanceId));
+        *selectedInstanceId = QString::fromStdString(inst.id);
+        appendLog(QString("Imported as instance: %1").arg(*selectedInstanceId));
         refreshInstances();
         refreshMods();
     });
 
     connect(btnExport, &QPushButton::clicked, this, [=]() {
-        if (selectedInstanceId.isEmpty())
+        if (selectedInstanceId->isEmpty())
         {
             appendLog("Select instance first.");
             return;
         }
         const auto outDir = QFileDialog::getExistingDirectory(nullptr, "Export to folder");
         if (outDir.isEmpty()) return;
-        const auto src = AppPaths::instancesDir() / selectedInstanceId.toStdString();
-        const auto dst = std::filesystem::path(outDir.toStdString()) / selectedInstanceId.toStdString();
+        const auto src = AppPaths::instancesDir() / selectedInstanceId->toStdString();
+        const auto dst = std::filesystem::path(outDir.toStdString()) / selectedInstanceId->toStdString();
         if (!copyTree(src, dst))
         {
             appendLog("Export failed.");
@@ -728,35 +740,35 @@ MainWindow::MainWindow(QWidget* parent)
         InstanceStore store(AppPaths::instancesDir());
         const auto lt = loaderTypeFromString(loader.toStdString()).value_or(LoaderType::Vanilla);
         const auto inst = store.create(name.toStdString(), mc.toStdString(), lt);
-        selectedInstanceId = QString::fromStdString(inst.id);
-        appendLog(QString("Created instance: %1").arg(selectedInstanceId));
+        *selectedInstanceId = QString::fromStdString(inst.id);
+        appendLog(QString("Created instance: %1").arg(*selectedInstanceId));
         refreshInstances();
         refreshMods();
     });
 
     connect(btnFolder, &QPushButton::clicked, this, [=]() {
-        if (selectedInstanceId.isEmpty()) return;
+        if (selectedInstanceId->isEmpty()) return;
         const auto gameDir =
-            QDir(QString::fromStdString(AppPaths::dataDir().string())).filePath(QString("instances/%1/game").arg(selectedInstanceId));
+            QDir(QString::fromStdString(AppPaths::dataDir().string())).filePath(QString("instances/%1/game").arg(*selectedInstanceId));
         QDir().mkpath(gameDir);
         QDesktopServices::openUrl(QUrl::fromLocalFile(gameDir));
     });
 
     connect(btnDelete, &QPushButton::clicked, this, [=]() {
-        if (selectedInstanceId.isEmpty()) return;
+        if (selectedInstanceId->isEmpty()) return;
         const auto r = QMessageBox::question(this, "Delete instance", "Delete selected instance?");
         if (r != QMessageBox::Yes) return;
         std::error_code ec;
-        std::filesystem::remove_all(AppPaths::instancesDir() / selectedInstanceId.toStdString(), ec);
-        selectedInstanceId.clear();
+        std::filesystem::remove_all(AppPaths::instancesDir() / selectedInstanceId->toStdString(), ec);
+        selectedInstanceId->clear();
         refreshInstances();
         refreshMods();
     });
 
     connect(btnEdit, &QPushButton::clicked, this, [=]() {
-        if (selectedInstanceId.isEmpty()) return;
-        const auto it = instancesById.find(selectedInstanceId.toStdString());
-        if (it == instancesById.end()) return;
+        if (selectedInstanceId->isEmpty()) return;
+        const auto it = instancesById->find(selectedInstanceId->toStdString());
+        if (it == instancesById->end()) return;
         bool ok = false;
         const auto name = QInputDialog::getText(this, "Rename instance", "Name:", QLineEdit::Normal,
                                                QString::fromStdString(it->second.name), &ok);
@@ -780,48 +792,48 @@ MainWindow::MainWindow(QWidget* parent)
     });
 
     connect(javaBrowse, &QPushButton::clicked, this, [=]() {
-        if (selectedInstanceId.isEmpty()) return;
+        if (selectedInstanceId->isEmpty()) return;
         const auto file = QFileDialog::getOpenFileName(this, "Select java", QString(), "Java (javaw.exe java.exe)");
         if (file.isEmpty()) return;
         javaPath->setText(file);
         auto settings = appSettings();
-        settings.set(instanceKey(selectedInstanceId, "javaPath"), file.trimmed().toStdString());
+        settings.set(instanceKey(*selectedInstanceId, "javaPath"), file.trimmed().toStdString());
     });
 
     connect(javaPath, &QLineEdit::editingFinished, this, [=]() {
-        if (selectedInstanceId.isEmpty()) return;
+        if (selectedInstanceId->isEmpty()) return;
         auto settings = appSettings();
-        settings.set(instanceKey(selectedInstanceId, "javaPath"), javaPath->text().trimmed().toStdString());
+        settings.set(instanceKey(*selectedInstanceId, "javaPath"), javaPath->text().trimmed().toStdString());
     });
 
     connect(ramSlider, &QSlider::valueChanged, this, [=](int v) { ramLabel->setText(QString("%1 MB").arg(v)); });
 
     connect(ramSlider, &QSlider::sliderReleased, this, [=]() {
-        if (selectedInstanceId.isEmpty()) return;
+        if (selectedInstanceId->isEmpty()) return;
         auto settings = appSettings();
-        settings.set(instanceKey(selectedInstanceId, "ramMb"), QString::number(ramSlider->value()).toStdString());
+        settings.set(instanceKey(*selectedInstanceId, "ramMb"), QString::number(ramSlider->value()).toStdString());
     });
 
     connect(notes, &QPlainTextEdit::textChanged, this, [=]() {
-        if (selectedInstanceId.isEmpty()) return;
+        if (selectedInstanceId->isEmpty()) return;
         auto settings = appSettings();
-        settings.set(instanceKey(selectedInstanceId, "notes"), notes->toPlainText().toStdString());
+        settings.set(instanceKey(*selectedInstanceId, "notes"), notes->toPlainText().toStdString());
     });
 
     connect(modsRefresh, &QPushButton::clicked, this, [=]() { refreshMods(); });
     connect(modsOpen, &QPushButton::clicked, this, [=]() {
-        if (selectedInstanceId.isEmpty()) return;
+        if (selectedInstanceId->isEmpty()) return;
         const auto modsDir = QDir(QString::fromStdString(AppPaths::dataDir().string()))
-                                 .filePath(QString("instances/%1/game/mods").arg(selectedInstanceId));
+                                 .filePath(QString("instances/%1/game/mods").arg(*selectedInstanceId));
         QDir().mkpath(modsDir);
         QDesktopServices::openUrl(QUrl::fromLocalFile(modsDir));
     });
 
     connect(modsList, &QListWidget::itemChanged, this, [=](QListWidgetItem* item) {
         if (!item) return;
-        if (selectedInstanceId.isEmpty()) return;
+        if (selectedInstanceId->isEmpty()) return;
         const auto modsDir = QDir(QString::fromStdString(AppPaths::dataDir().string()))
-                                 .filePath(QString("instances/%1/game/mods").arg(selectedInstanceId));
+                                 .filePath(QString("instances/%1/game/mods").arg(*selectedInstanceId));
         QDir().mkpath(modsDir);
 
         const auto src = item->data(Qt::UserRole).toString();
@@ -923,9 +935,9 @@ MainWindow::MainWindow(QWidget* parent)
 
 #if defined(BLOCKFORGE_BUILD_MC)
     connect(btnPlay, &QPushButton::clicked, this, [=]() {
-        if (selectedInstanceId.isEmpty()) return;
-        const auto it = instancesById.find(selectedInstanceId.toStdString());
-        if (it == instancesById.end()) return;
+        if (selectedInstanceId->isEmpty()) return;
+        const auto it = instancesById->find(selectedInstanceId->toStdString());
+        if (it == instancesById->end()) return;
 
         progress->setVisible(true);
         progress->setValue(0);
@@ -994,7 +1006,7 @@ MainWindow::MainWindow(QWidget* parent)
             });
 
             auto settings = appSettings();
-            settings.set(QString("instance.%1.lastPlayedMs").arg(selectedInstanceId).toStdString(),
+            settings.set(QString("instance.%1.lastPlayedMs").arg(*selectedInstanceId).toStdString(),
                          QString::number(QDateTime::currentMSecsSinceEpoch()).toStdString());
             refreshInstances();
 
