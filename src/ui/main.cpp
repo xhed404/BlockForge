@@ -9,6 +9,7 @@
 #include <QIcon>
 #include <QResource>
 #include <QTextStream>
+#include <QStringConverter>
 
 #include <mutex>
 
@@ -32,7 +33,7 @@ static void messageHandler(QtMsgType type, const QMessageLogContext&, const QStr
         if (g_logFile && g_logFile->isOpen())
         {
             QTextStream ts(g_logFile);
-            ts.setCodec("UTF-8");
+            ts.setEncoding(QStringConverter::Utf8);
             ts << line;
             g_logFile->flush();
         }
