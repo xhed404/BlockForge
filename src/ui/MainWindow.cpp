@@ -503,7 +503,7 @@ MainWindow::MainWindow(QWidget* parent)
         notes->setEnabled(true);
     };
 
-    auto refreshInstances = [=]() mutable {
+    auto refreshInstances = [=]() {
         instancesById->clear();
         list->clear();
 
@@ -559,7 +559,7 @@ MainWindow::MainWindow(QWidget* parent)
         updateDetails();
     };
 
-    auto refreshAccounts = [=]() mutable {
+    auto refreshAccounts = [=]() {
         accountCombo->blockSignals(true);
         accountCombo->clear();
 
