@@ -14,7 +14,7 @@ BlockForge - лаунчер Minecraft с поддержкой vanilla / Fabric /
 
 Собранные артефакты публикуются в Releases (`Portable` и `Setup`, плюс `SHA256SUMS`).
 
-## Быстрый старт
+## Быстрый старт, всего 4 шага!
 
 1) Запустите BlockForge  
 2) Создайте инстанс (vanilla/fabric/forge)  
@@ -23,7 +23,7 @@ BlockForge - лаунчер Minecraft с поддержкой vanilla / Fabric /
 
 ## Online-mode (Microsoft)
 
-Для online-mode используется Microsoft device-code flow. `client_id` уже задан по умолчанию и при необходимости меняется в UI.
+Для online-mode используется Microsoft device-code flow. `client_id` уже задан по умолчанию и при необходимости меняется в UI. Если же Вы делаете форк лаунчера, то Вы должны поменять `client_id`, заданный по умолчанию.
 
 ## Сборка
 
@@ -47,3 +47,5 @@ cmake --build build
 ## Лицензия
 
 MIT, см. [LICENSE](LICENSE).
+
+## На данный момент в репозитории не рабочий код, если же Вы хотите использовать этот лаунчер, то воспользуйтесь [Releases](https://github.com/xhed404/BlockForge/releases/).
