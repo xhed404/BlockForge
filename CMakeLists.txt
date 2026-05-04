@@ -59,6 +59,9 @@ if(BLOCKFORGE_BUILD_UI)
         src/ui/MainWindow.cpp
         src/ui/LaunchWorker.cpp
         src/ui/AuthWorker.cpp
+        src/ui/TokenRefreshWorker.cpp
+        src/ui/Theme.cpp
+        src/ui/ModrinthDialog.cpp
         src/ui/resources.qrc
     )
     set_target_properties(BlockForge PROPERTIES AUTOMOC ON AUTOUIC ON AUTORCC ON)
