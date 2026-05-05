@@ -1,7 +1,5 @@
 # BlockForge Launcher
 
-![BlockForge Banner]()
-
 BlockForge - лаунчер Minecraft с поддержкой vanilla / Fabric / Forge, оффлайн-профилей и Microsoft login.
 
 ## Возможности
