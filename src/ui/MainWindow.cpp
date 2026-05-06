@@ -9,7 +9,6 @@
 #include "ui/AuthWorker.h"
 #include "ui/LaunchWorker.h"
 #include "ui/ModrinthDialog.h"
-#include "ui/TokenRefreshWorker.h"
 #include "ui/Theme.h"
 
 #include <QCloseEvent>
