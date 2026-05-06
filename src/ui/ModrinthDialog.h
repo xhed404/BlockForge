@@ -42,4 +42,3 @@ QPushButton* m_installBtn = nullptr;
 QLabel* m_status = nullptr;
 };
 }
-Theme.cpp
