@@ -96,21 +96,21 @@ if ([string]::IsNullOrWhiteSpace($zlibSource)) {
   $needsZlib = $true
   $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
   if ($dumpbin) {
-  if (![string]::IsNullOrWhiteSpace($zlibSource)) {
-  Copy-Item $zlibSource (Join-Path $appDir $zlibName) -Force
-  if ($zlibName -ne "zlib1.dll") {
-  Copy-Item $zlibSource (Join-Path $appDir "zlib1.dll") -Force
-}
-}
-}
-if ($needsZlib) {
-throw "zlib dll not found (zlib1.dll/zlib.dll). VCPKG_INSTALLATION_ROOT=$vcpkgRoot triplet=$triplet"
-}
+    $deps = & $dumpbin.Source /nologo /dependents $exe 2>$null
+    if ($LASTEXITCODE -eq 0) {
+      $needsZlib = ($deps -match "(?i)\bzlib1\.dll\b") -or ($deps -match "(?i)\bzlib\.dll\b")
+    }
+  }
+  if ($needsZlib) {
+    throw "zlib dll not found (zlib1.dll/zlib.dll). VCPKG_INSTALLATION_ROOT=$vcpkgRoot triplet=$triplet"
+  }
 }
 
-Copy-Item $zlibSource (Join-Path $appDir $zlibName) -Force
-if ($zlibName -ne "zlib1.dll") {
-  Copy-Item $zlibSource (Join-Path $appDir "zlib1.dll") -Force
+if (![string]::IsNullOrWhiteSpace($zlibSource)) {
+  Copy-Item $zlibSource (Join-Path $appDir $zlibName) -Force
+  if ($zlibName -ne "zlib1.dll") {
+    Copy-Item $zlibSource (Join-Path $appDir "zlib1.dll") -Force
+  }
 }
 
 $jreRoot = Join-Path $appDir "jre"
