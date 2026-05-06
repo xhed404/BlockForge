@@ -93,7 +93,19 @@ if ([string]::IsNullOrWhiteSpace($zlibSource)) {
 }
 
 if ([string]::IsNullOrWhiteSpace($zlibSource)) {
-  throw "zlib dll not found (zlib1.dll/zlib.dll). VCPKG_INSTALLATION_ROOT=$vcpkgRoot triplet=$triplet"
+  $needsZlib = $true
+  $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
+  if ($dumpbin) {
+  if (![string]::IsNullOrWhiteSpace($zlibSource)) {
+  Copy-Item $zlibSource (Join-Path $appDir $zlibName) -Force
+  if ($zlibName -ne "zlib1.dll") {
+  Copy-Item $zlibSource (Join-Path $appDir "zlib1.dll") -Force
+}
+}
+}
+if ($needsZlib) {
+throw "zlib dll not found (zlib1.dll/zlib.dll). VCPKG_INSTALLATION_ROOT=$vcpkgRoot triplet=$triplet"
+}
 }
 
 Copy-Item $zlibSource (Join-Path $appDir $zlibName) -Force
