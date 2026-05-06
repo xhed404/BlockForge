@@ -13,6 +13,7 @@
 
 #include <QCloseEvent>
 #include <QAbstractItemView>
+#include <QCoreApplication>
 #include <QComboBox>
 #include <QCheckBox>
 #include <QColorDialog>
