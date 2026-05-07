@@ -84,6 +84,17 @@ foreach ($c in $candidates) {
 }
 
 if ([string]::IsNullOrWhiteSpace($zlibSource)) {
+  if (![string]::IsNullOrWhiteSpace($vcpkgRoot)) {
+    $installedTriplet = Join-Path $vcpkgRoot ("installed\\" + $triplet)
+    if (Test-Path $installedTriplet) {
+      $z = Get-ChildItem -Path $installedTriplet -Filter "zlib1.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+      if (!$z) { $z = Get-ChildItem -Path $installedTriplet -Filter "zlib.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
+      if ($z) {
+        $zlibSource = $z.FullName
+        $zlibName = $z.Name
+      }
+    }
+  }
   $z = Get-ChildItem -Path $buildDirAbs -Filter "zlib1.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
   if (!$z) { $z = Get-ChildItem -Path $buildDirAbs -Filter "zlib.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
   if ($z) {
