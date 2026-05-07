@@ -65,7 +65,7 @@ if ([string]::IsNullOrWhiteSpace($triplet)) { $triplet = "x64-windows" }
 $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
 
 $candidates = @()
-foreach ($n in @("zlib1.dll", "zlib.dll")) {
+foreach ($n in @("zlib1.dll", "zlib.dll", "z.dll")) {
   $candidates += (Join-Path $buildDirAbs $n)
   if (![string]::IsNullOrWhiteSpace($vcpkgRoot)) {
     $candidates += (Join-Path $vcpkgRoot ("installed\\" + $triplet + "\\bin\\" + $n))
@@ -89,6 +89,7 @@ if ([string]::IsNullOrWhiteSpace($zlibSource)) {
     if (Test-Path $installedTriplet) {
       $z = Get-ChildItem -Path $installedTriplet -Filter "zlib1.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
       if (!$z) { $z = Get-ChildItem -Path $installedTriplet -Filter "zlib.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
+      if (!$z) { $z = Get-ChildItem -Path $installedTriplet -Filter "z.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
       if ($z) {
         $zlibSource = $z.FullName
         $zlibName = $z.Name
@@ -97,6 +98,7 @@ if ([string]::IsNullOrWhiteSpace($zlibSource)) {
   }
   $z = Get-ChildItem -Path $buildDirAbs -Filter "zlib1.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
   if (!$z) { $z = Get-ChildItem -Path $buildDirAbs -Filter "zlib.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
+  if (!$z) { $z = Get-ChildItem -Path $buildDirAbs -Filter "z.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
   if ($z) {
     $zlibSource = $z.FullName
     $zlibName = $z.Name
@@ -105,11 +107,13 @@ if ([string]::IsNullOrWhiteSpace($zlibSource)) {
 
 if ([string]::IsNullOrWhiteSpace($zlibSource)) {
   $needsZlib = $true
+  $needsZ = $false
   $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
   if ($dumpbin) {
     $deps = & $dumpbin.Source /nologo /dependents $exe 2>$null
     if ($LASTEXITCODE -eq 0) {
-      $needsZlib = ($deps -match "(?i)\bzlib1\.dll\b") -or ($deps -match "(?i)\bzlib\.dll\b")
+      $needsZlib = ($deps -match "(?i)\bzlib1\.dll\b") -or ($deps -match "(?i)\bzlib\.dll\b") -or ($deps -match "(?i)\bz\.dll\b")
+      $needsZ = ($deps -match "(?i)\bz\.dll\b")
     }
   }
   if ($needsZlib) {
@@ -121,6 +125,9 @@ if (![string]::IsNullOrWhiteSpace($zlibSource)) {
   Copy-Item $zlibSource (Join-Path $appDir $zlibName) -Force
   if ($zlibName -ne "zlib1.dll") {
     Copy-Item $zlibSource (Join-Path $appDir "zlib1.dll") -Force
+  }
+  if ($zlibName -ne "z.dll") {
+    Copy-Item $zlibSource (Join-Path $appDir "z.dll") -Force
   }
 }
 
