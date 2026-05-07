@@ -69,7 +69,7 @@ jobs:
         shell: pwsh
         run: |
           if (-not $env:VCPKG_INSTALLATION_ROOT) { throw "VCPKG_INSTALLATION_ROOT is not set" }
-          cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DBLOCKFORGE_BUILD_UI=ON -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
+          cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DBLOCKFORGE_BUILD_UI=ON -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows -DVCPKG_APPLOCAL_DEPS=ON
 
       - name: Build
         shell: pwsh
