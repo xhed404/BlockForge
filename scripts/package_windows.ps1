@@ -70,43 +70,63 @@ if (![string]::IsNullOrWhiteSpace($env:Qt6_DIR)) {
 $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
 if (!$dumpbin) { throw "dumpbin.exe not found on PATH (MSVC environment is required for packaging)" }
 
-$sys32 = Join-Path $env:WINDIR "System32"
-$syswow64 = Join-Path $env:WINDIR "SysWOW64"
+$winDir = $env:WINDIR
+if ([string]::IsNullOrWhiteSpace($winDir)) { $winDir = "C:\\Windows" }
+$sys32 = Join-Path $winDir "System32"
+$syswow64 = Join-Path $winDir "SysWOW64"
 $alwaysBundle = @(
-"concrt140.dll",
-"msvcp140.dll",
-"msvcp140_1.dll",
-"msvcp140_2.dll",
-"vcruntime140.dll",
-"vcruntime140_1.dll"
+  "concrt140.dll",
+  "msvcp140.dll",
+  "msvcp140_1.dll",
+  "msvcp140_2.dll",
+  "vcruntime140.dll",
+  "vcruntime140_1.dll"
 )
 
 $systemDlls = @(
+  "authz.dll",
   "advapi32.dll",
   "bcrypt.dll",
+  "cabinet.dll",
   "comctl32.dll",
   "comdlg32.dll",
   "crypt32.dll",
+  "d3d11.dll",
+  "d3d12.dll",
+  "d3d9.dll",
   "dnsapi.dll",
+  "dwmapi.dll",
+  "dwrite.dll",
+  "dxgi.dll",
   "gdi32.dll",
   "gdi32full.dll",
+  "imagehlp.dll",
   "imm32.dll",
   "iphlpapi.dll",
   "kernel32.dll",
+  "mpr.dll",
+  "msi.dll",
   "msvcp_win.dll",
+  "ncrypt.dll",
+  "netapi32.dll",
   "ntdll.dll",
   "ole32.dll",
   "oleaut32.dll",
   "rpcrt4.dll",
   "secur32.dll",
+  "setupapi.dll",
   "shell32.dll",
   "shlwapi.dll",
   "ucrtbase.dll",
+  "uxtheme.dll",
   "user32.dll",
   "userenv.dll",
   "version.dll",
   "winhttp.dll",
+  "wininet.dll",
   "winmm.dll",
+  "wintrust.dll",
+  "wtsapi32.dll",
   "ws2_32.dll"
 )
 
@@ -121,6 +141,9 @@ foreach ($b in $bins) {
     $name = $m.Groups[1].Value.ToLowerInvariant()
     if ($name -like "api-ms-win-*.dll") { continue }
     if ($name -like "ext-ms-*.dll") { continue }
+    if ($alwaysBundle -contains $name) { $wanted.Add($name) | Out-Null; continue }
+    if (![string]::IsNullOrWhiteSpace($sys32) -and (Test-Path (Join-Path $sys32 $name))) { continue }
+    if (![string]::IsNullOrWhiteSpace($syswow64) -and (Test-Path (Join-Path $syswow64 $name))) { continue }
     if ($systemDlls -contains $name) { continue }
     $wanted.Add($name) | Out-Null
   }
@@ -132,6 +155,19 @@ foreach ($dll in $wanted) {
   if ($already) { continue }
 
   $src = $null
+  if ([string]::IsNullOrWhiteSpace($src) -and ($alwaysBundle -contains $dll)) {
+    $redist = $env:VCToolsRedistDir
+    if (![string]::IsNullOrWhiteSpace($redist) -and (Test-Path $redist)) {
+      $f = Get-ChildItem -Path $redist -Filter $dll -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+      if ($f) { $src = $f.FullName }
+    }
+    $cand = Join-Path $sys32 $dll
+    if (Test-Path $cand) { $src = $cand }
+    if ([string]::IsNullOrWhiteSpace($src)) {
+      $cand = Join-Path $syswow64 $dll
+      if (Test-Path $cand) { $src = $cand }
+    }
+  }
   if (![string]::IsNullOrWhiteSpace($vcpkgRoot)) {
     $cand = Join-Path $vcpkgRoot ("installed\\" + $triplet + "\\bin\\" + $dll)
     if (Test-Path $cand) { $src = $cand }
@@ -169,8 +205,19 @@ foreach ($dll in $wanted) {
 }
 
 if ($missing.Count -gt 0) {
-  $list = ($missing | Sort-Object) -join ", "
-  throw "Missing runtime DLL(s) after deployment: $list"
+  $filtered = New-Object System.Collections.Generic.HashSet[string]
+  foreach ($dll in $missing) {
+    if ($dll -like "api-ms-win-*.dll") { continue }
+    if ($dll -like "ext-ms-*.dll") { continue }
+    if ($systemDlls -contains $dll) { continue }
+    if (![string]::IsNullOrWhiteSpace($sys32) -and (Test-Path (Join-Path $sys32 $dll))) { continue }
+    if (![string]::IsNullOrWhiteSpace($syswow64) -and (Test-Path (Join-Path $syswow64 $dll))) { continue }
+    $filtered.Add($dll) | Out-Null
+  }
+  if ($filtered.Count -gt 0) {
+    $list = ($filtered | Sort-Object) -join ", "
+    throw "Missing runtime DLL(s) after deployment: $list"
+  }
 }
 
 $jreRoot = Join-Path $appDir "jre"
