@@ -70,6 +70,17 @@ if (![string]::IsNullOrWhiteSpace($env:Qt6_DIR)) {
 $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
 if (!$dumpbin) { throw "dumpbin.exe not found on PATH (MSVC environment is required for packaging)" }
 
+$sys32 = Join-Path $env:WINDIR "System32"
+$syswow64 = Join-Path $env:WINDIR "SysWOW64"
+$alwaysBundle = @(
+"concrt140.dll",
+"msvcp140.dll",
+"msvcp140_1.dll",
+"msvcp140_2.dll",
+"vcruntime140.dll",
+"vcruntime140_1.dll"
+)
+
 $systemDlls = @(
   "advapi32.dll",
   "bcrypt.dll",
