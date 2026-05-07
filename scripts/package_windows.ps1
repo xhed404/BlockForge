@@ -56,79 +56,110 @@ if ([string]::IsNullOrWhiteSpace($windeployqt) -and ![string]::IsNullOrWhiteSpac
 }
 if ([string]::IsNullOrWhiteSpace($windeployqt)) { throw "windeployqt.exe not found (Qt6_DIR is not set and windeployqt is not on PATH)" }
 
-& $windeployqt --release --no-translations (Join-Path $appDir "BlockForge.exe")
+& $windeployqt --release --no-translations --compiler-runtime (Join-Path $appDir "BlockForge.exe")
 
-$zlibSource = $null
-$zlibName = $null
 $triplet = $env:VCPKG_TARGET_TRIPLET
 if ([string]::IsNullOrWhiteSpace($triplet)) { $triplet = "x64-windows" }
 $vcpkgRoot = $env:VCPKG_INSTALLATION_ROOT
 
-$candidates = @()
-foreach ($n in @("zlib1.dll", "zlib.dll", "z.dll")) {
-  $candidates += (Join-Path $buildDirAbs $n)
-  if (![string]::IsNullOrWhiteSpace($vcpkgRoot)) {
-    $candidates += (Join-Path $vcpkgRoot ("installed\\" + $triplet + "\\bin\\" + $n))
-    $candidates += (Join-Path $vcpkgRoot ("installed\\" + $triplet + "\\debug\\bin\\" + $n))
-  }
-  $candidates += ("C:\\vcpkg\\installed\\" + $triplet + "\\bin\\" + $n)
-  $candidates += ("C:\\ProgramData\\vcpkg\\installed\\" + $triplet + "\\bin\\" + $n)
+$qtBin = $null
+if (![string]::IsNullOrWhiteSpace($env:Qt6_DIR)) {
+  $qtBin = [System.IO.Path]::GetFullPath((Join-Path $env:Qt6_DIR "..\\..\\..\\bin"))
 }
 
-foreach ($c in $candidates) {
-  if (![string]::IsNullOrWhiteSpace($c) -and (Test-Path $c)) {
-    $zlibSource = $c
-    $zlibName = [System.IO.Path]::GetFileName($c)
-    break
+$dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
+if (!$dumpbin) { throw "dumpbin.exe not found on PATH (MSVC environment is required for packaging)" }
+
+$systemDlls = @(
+  "advapi32.dll",
+  "bcrypt.dll",
+  "comctl32.dll",
+  "comdlg32.dll",
+  "crypt32.dll",
+  "dnsapi.dll",
+  "gdi32.dll",
+  "gdi32full.dll",
+  "imm32.dll",
+  "iphlpapi.dll",
+  "kernel32.dll",
+  "msvcp_win.dll",
+  "ntdll.dll",
+  "ole32.dll",
+  "oleaut32.dll",
+  "rpcrt4.dll",
+  "secur32.dll",
+  "shell32.dll",
+  "shlwapi.dll",
+  "ucrtbase.dll",
+  "user32.dll",
+  "userenv.dll",
+  "version.dll",
+  "winhttp.dll",
+  "winmm.dll",
+  "ws2_32.dll"
+)
+
+$bins = Get-ChildItem -Path $appDir -Recurse -File | Where-Object { $_.Extension -in @(".exe", ".dll") }
+$wanted = New-Object System.Collections.Generic.HashSet[string]
+foreach ($b in $bins) {
+  $deps = & $dumpbin.Source /nologo /dependents $b.FullName 2>$null
+  if ($LASTEXITCODE -ne 0) { continue }
+  foreach ($ln in $deps) {
+    $m = [regex]::Match($ln, "^\s*([A-Za-z0-9\.\-_]+\.dll)\s*$")
+    if (!$m.Success) { continue }
+    $name = $m.Groups[1].Value.ToLowerInvariant()
+    if ($name -like "api-ms-win-*.dll") { continue }
+    if ($name -like "ext-ms-*.dll") { continue }
+    if ($systemDlls -contains $name) { continue }
+    $wanted.Add($name) | Out-Null
   }
 }
 
-if ([string]::IsNullOrWhiteSpace($zlibSource)) {
+$missing = New-Object System.Collections.Generic.HashSet[string]
+foreach ($dll in $wanted) {
+  $already = Get-ChildItem -Path $appDir -Recurse -File -Filter $dll -ErrorAction SilentlyContinue | Select-Object -First 1
+  if ($already) { continue }
+
+  $src = $null
   if (![string]::IsNullOrWhiteSpace($vcpkgRoot)) {
-    $installedTriplet = Join-Path $vcpkgRoot ("installed\\" + $triplet)
-    if (Test-Path $installedTriplet) {
-      $z = Get-ChildItem -Path $installedTriplet -Filter "zlib1.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-      if (!$z) { $z = Get-ChildItem -Path $installedTriplet -Filter "zlib.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
-      if (!$z) { $z = Get-ChildItem -Path $installedTriplet -Filter "z.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
-      if ($z) {
-        $zlibSource = $z.FullName
-        $zlibName = $z.Name
-      }
+    $cand = Join-Path $vcpkgRoot ("installed\\" + $triplet + "\\bin\\" + $dll)
+    if (Test-Path $cand) { $src = $cand }
+  }
+  if ([string]::IsNullOrWhiteSpace($src) -and ![string]::IsNullOrWhiteSpace($qtBin)) {
+    $cand = Join-Path $qtBin $dll
+    if (Test-Path $cand) { $src = $cand }
+  }
+  if ([string]::IsNullOrWhiteSpace($src) -and ![string]::IsNullOrWhiteSpace($vcpkgRoot)) {
+    $root = Join-Path $vcpkgRoot ("installed\\" + $triplet)
+    if (Test-Path $root) {
+      $f = Get-ChildItem -Path $root -Filter $dll -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+      if ($f) { $src = $f.FullName }
     }
   }
-  $z = Get-ChildItem -Path $buildDirAbs -Filter "zlib1.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
-  if (!$z) { $z = Get-ChildItem -Path $buildDirAbs -Filter "zlib.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
-  if (!$z) { $z = Get-ChildItem -Path $buildDirAbs -Filter "z.dll" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1 }
-  if ($z) {
-    $zlibSource = $z.FullName
-    $zlibName = $z.Name
+
+  if ([string]::IsNullOrWhiteSpace($src)) {
+    $missing.Add($dll) | Out-Null
+    continue
+  }
+
+  Copy-Item $src (Join-Path $appDir $dll) -Force
+  if ($dll -eq "z.dll") {
+    Copy-Item $src (Join-Path $appDir "zlib1.dll") -Force
+    Copy-Item $src (Join-Path $appDir "zlib.dll") -Force
+  }
+  if ($dll -eq "zlib1.dll") {
+    Copy-Item $src (Join-Path $appDir "z.dll") -Force
+    Copy-Item $src (Join-Path $appDir "zlib.dll") -Force
+  }
+  if ($dll -eq "zlib.dll") {
+    Copy-Item $src (Join-Path $appDir "z.dll") -Force
+    Copy-Item $src (Join-Path $appDir "zlib1.dll") -Force
   }
 }
 
-if ([string]::IsNullOrWhiteSpace($zlibSource)) {
-  $needsZlib = $true
-  $needsZ = $false
-  $dumpbin = Get-Command dumpbin.exe -ErrorAction SilentlyContinue
-  if ($dumpbin) {
-    $deps = & $dumpbin.Source /nologo /dependents $exe 2>$null
-    if ($LASTEXITCODE -eq 0) {
-      $needsZlib = ($deps -match "(?i)\bzlib1\.dll\b") -or ($deps -match "(?i)\bzlib\.dll\b") -or ($deps -match "(?i)\bz\.dll\b")
-      $needsZ = ($deps -match "(?i)\bz\.dll\b")
-    }
-  }
-  if ($needsZlib) {
-    throw "zlib dll not found (zlib1.dll/zlib.dll). VCPKG_INSTALLATION_ROOT=$vcpkgRoot triplet=$triplet"
-  }
-}
-
-if (![string]::IsNullOrWhiteSpace($zlibSource)) {
-  Copy-Item $zlibSource (Join-Path $appDir $zlibName) -Force
-  if ($zlibName -ne "zlib1.dll") {
-    Copy-Item $zlibSource (Join-Path $appDir "zlib1.dll") -Force
-  }
-  if ($zlibName -ne "z.dll") {
-    Copy-Item $zlibSource (Join-Path $appDir "z.dll") -Force
-  }
+if ($missing.Count -gt 0) {
+  $list = ($missing | Sort-Object) -join ", "
+  throw "Missing runtime DLL(s) after deployment: $list"
 }
 
 $jreRoot = Join-Path $appDir "jre"
