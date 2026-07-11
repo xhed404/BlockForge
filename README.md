@@ -51,4 +51,4 @@ cmake --build build
 MIT, см. [LICENSE](LICENSE).
 ## Состояние проекта
 
-На данный момент в репозитории не рабочий код, если же Вы хотите использовать этот лаунчер, то воспользуйтесь [Releases](https://github.com/xhed404/BlockForge/releases/).
+Актуальные рабочие сборки доступны в [Releases](https://github.com/xhed404/BlockForge/releases/). Исходный код в репозитории может отличаться от опубликованных релизов.
